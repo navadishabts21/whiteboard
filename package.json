@@ -1,9 +1,9 @@
 {
-  "name": "navdishabts-whiteboard",
+  "name": "nava-disha-bts-whiteboard",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://BNTiyan.github.io/Navadishabts_whiteboard",
+  "homepage": "https://navadishabts21.github.io/whiteboard",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -19,7 +19,7 @@ export default function App() {
     const interval = setInterval(() => {
       if (!editorRef.current) return
       const snapshot = editorRef.current.store.getSnapshot()
-      localStorage.setItem('navdishabts-autosave', JSON.stringify(snapshot))
+      localStorage.setItem('nava-disha-bts-autosave', JSON.stringify(snapshot))
     }, 5000)
     return () => clearInterval(interval)
   }, [])
@@ -32,7 +32,7 @@ export default function App() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'navdishabts.board'
+    a.download = 'nava-disha-bts.board'
     a.click()
   }
 
@@ -58,7 +58,7 @@ export default function App() {
       const pngUrl = canvas.toDataURL('image/png')
       const a = document.createElement('a')
       a.href = pngUrl
-      a.download = 'navdishabts.png'
+      a.download = 'nava-disha-bts.png'
       a.click()
     }
     img.src = url

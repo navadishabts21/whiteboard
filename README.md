@@ -1,5 +1,5 @@
 
-# NavDishaBTS Whiteboard (Production v3)
+# Nava Disha BTS Whiteboard (Production v3)
 
 Advanced frontend whiteboard tool with:
 
