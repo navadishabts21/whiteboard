@@ -1,9 +1,9 @@
 {
-  "name": "nava-disha-bts-whiteboard",
+  "name": "navdishabts-whiteboard",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://navadishabts21.github.io/whiteboard",
+  "homepage": "https://navadishabts21.github.io/whiteboard/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,9 +13,10 @@
   },
   "dependencies": {
     "@tldraw/tldraw": "^2.0.0",
+    "pdfjs-dist": "^5.5.207",
+    "prismjs": "^1.29.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "prismjs": "^1.29.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
