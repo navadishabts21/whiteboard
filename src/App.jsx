@@ -8,14 +8,15 @@ import '@tldraw/tldraw/tldraw.css'
 import { useEffect, useRef, useState } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 
-// Set worker source for pdfjs
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+// Use a more reliable worker source
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 export default function App() {
   const [slides, setSlides] = useState([])
   const [currIdx, setCurrIdx] = useState(0)
   const [dark, setDark] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('')
   const editorRef = useRef(null)
 
   // Map of slide index to their respective snapshots
@@ -33,33 +34,46 @@ export default function App() {
     if (files.length === 0) return
 
     setLoading(true)
+    setStatus('Preparing...')
     const newSlides = []
 
-    for (const file of files) {
-      if (file.type === 'application/pdf') {
-        // Process PDF
-        const arrayBuffer = await file.arrayBuffer()
-        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
+    try {
+      for (const file of files) {
+        if (file.type === 'application/pdf') {
+          setStatus('Reading PDF...')
+          const arrayBuffer = await file.arrayBuffer()
+          const loadingTask = pdfjs.getDocument({ data: arrayBuffer })
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i)
-          const viewport = page.getViewport({ scale: 2 }) // High resolution
-          const canvas = document.createElement('canvas')
-          const context = canvas.getContext('2d')
-          canvas.height = viewport.height
-          canvas.width = viewport.width
+          const pdf = await loadingTask.promise
+          const numPages = pdf.numPages
 
-          await page.render({ canvasContext: context, viewport }).promise
-          newSlides.push(canvas.toDataURL('image/png'))
+          for (let i = 1; i <= numPages; i++) {
+            setStatus(`Processing page ${i} of ${numPages}...`)
+            const page = await pdf.getPage(i)
+            const viewport = page.getViewport({ scale: 1.5 })
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({ canvasContext: context, viewport }).promise
+            newSlides.push(canvas.toDataURL('image/png'))
+          }
+        } else if (file.type.startsWith('image/')) {
+          newSlides.push(URL.createObjectURL(file))
         }
-      } else if (file.type.startsWith('image/')) {
-        // Process Image
-        newSlides.push(URL.createObjectURL(file))
       }
-    }
 
-    setSlides(prev => [...prev, ...newSlides])
-    setLoading(false)
+      if (newSlides.length > 0) {
+        setSlides(prev => [...prev, ...newSlides])
+      }
+    } catch (error) {
+      console.error('PDF Error:', error)
+      alert('Error loading PDF: ' + error.message + '\nPlease try a different PDF or images.')
+    } finally {
+      setLoading(false)
+      setStatus('')
+    }
   }
 
   const goToSlide = (index) => {
@@ -159,9 +173,67 @@ export default function App() {
     }
   }
 
+  const saveBoard = () => {
+    if (editorRef.current) {
+      const snapshot = editorRef.current.store.getSnapshot()
+      const blob = new Blob([JSON.stringify(snapshot)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `whiteboard-slide-${currIdx + 1}.board`
+      a.click()
+    }
+  }
+
+  const loadBoard = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+    const text = await file.text()
+    if (editorRef.current) {
+      editorRef.current.store.loadSnapshot(JSON.parse(text))
+    }
+  }
+
+  const saveProject = () => {
+    // Save current slide before exporting everything
+    saveCurrentSnapshot()
+    const projectData = {
+      slides,
+      snapshots,
+      currIdx,
+      version: '2.0'
+    }
+    const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `presentation-project.navdis`
+    a.click()
+  }
+
+  const loadProject = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+    const text = await file.text()
+    const data = JSON.parse(text)
+
+    if (data.version === '2.0') {
+      setSlides(data.slides || [])
+      setSnapshots(data.snapshots || {})
+      setCurrIdx(data.currIdx || 0)
+    } else {
+      // Handle old board files as a single slide if possible
+      alert("This is an old board file. Use 'Load Slide' instead to load it into the current page.")
+    }
+  }
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault()
+        saveProject()
+      }
       if (e.key === 'ArrowLeft') {
         goToSlide(currIdx - 1)
       } else if (e.key === 'ArrowRight') {
@@ -170,15 +242,23 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currIdx, slides])
+  }, [currIdx, slides, snapshots])
 
   return (
     <div className="app-container">
       <div className="toolbar">
         <label className="upload-btn">
-          📂 {loading ? 'Loading...' : 'Upload Presentation (PDF/Images)'}
+          📂 {loading ? (status || 'Loading...') : 'Upload Presentation (PDF/Images)'}
           <input type="file" multiple accept="image/*,application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} disabled={loading} />
         </label>
+
+        <div className="project-actions">
+          <button className="icon-btn" title="Save Entire Project" onClick={saveProject}>💾 Save Project</button>
+          <label className="icon-btn" title="Load Project">
+            📂 Load Project
+            <input type="file" accept=".navdis" onChange={loadProject} style={{ display: 'none' }} />
+          </label>
+        </div>
 
         {slides.length > 0 && (
           <div className="navigation">
@@ -202,8 +282,16 @@ export default function App() {
 
         <div style={{ flex: 1 }} />
 
-        <button className="action-btn" style={{ background: '#ef4444' }} onClick={resetSlide}>Reset Slide</button>
-        <button className="action-btn" onClick={exportPNG}>Export</button>
+        <div className="slide-tools">
+          <label className="action-btn" style={{ background: '#8b5cf6' }}>
+            📥 Load Slide
+            <input type="file" accept=".board" onChange={loadBoard} style={{ display: 'none' }} />
+          </label>
+          <button className="action-btn" style={{ background: '#8b5cf6' }} onClick={saveBoard}>📤 Save Slide</button>
+          <button className="action-btn" style={{ background: '#ef4444' }} onClick={resetSlide}>Reset Slide</button>
+        </div>
+
+        <button className="action-btn" onClick={exportPNG}>Export PNG</button>
         <button className="action-btn" onClick={() => setDark(!dark)}>{dark ? '☀️ Light' : '🌙 Dark'}</button>
       </div>
 
@@ -324,6 +412,36 @@ export default function App() {
         .canvas-wrapper {
           flex: 1;
           position: relative;
+        }
+
+        .project-actions {
+          display: flex;
+          gap: 8px;
+          border-left: 1px solid rgba(255,255,255,0.1);
+          padding-left: 15px;
+        }
+
+        .slide-tools {
+          display: flex;
+          gap: 8px;
+          margin-right: 15px;
+        }
+
+        .icon-btn {
+          background: rgba(255, 255, 255, 0.05);
+          color: #94a3b8;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 6px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 13px;
+          transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+          border-color: rgba(255, 255, 255, 0.2);
         }
       `}</style>
     </div>
