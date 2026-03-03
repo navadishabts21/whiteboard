@@ -203,18 +203,17 @@ export default function App() {
 
     const projectData = {
       slides,
-      snapshots: updatedSnapshots, // Use the freshly captured snapshots
+      snapshots: updatedSnapshots,
       currIdx,
-      version: '2.0'
+      version: '2.0-board'
     }
     const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `presentation-project.navdis`
+    a.download = `whiteboard-project.board`
     a.click()
 
-    // Sync state as well
     setSnapshots(updatedSnapshots)
   }
 
@@ -226,24 +225,24 @@ export default function App() {
       const text = await file.text()
       const data = JSON.parse(text)
 
-      if (data.version === '2.0' || (data.slides && data.snapshots)) {
-        // Force reset current view before bulk loading
+      // Support both new project format and old single-slide format
+      if (data.version === '2.0-board' || (data.slides && data.snapshots)) {
         if (editorRef.current) {
           editorRef.current.selectAll().deleteShapes(editorRef.current.getSelectedShapeIds())
         }
-
-        // Apply state updates
         setSlides(data.slides || [])
         setSnapshots(data.snapshots || {})
         setCurrIdx(data.currIdx || 0)
-
-        console.log("Project data applied to state")
       } else {
-        alert("This file doesn't look like a valid project file.")
+        // Fallback: If it's an old single-page .board file, load it into the current slide
+        if (editorRef.current) {
+          editorRef.current.store.loadSnapshot(data)
+          alert("Legacy single-slide board loaded into current view.")
+        }
       }
     } catch (err) {
-      console.error("Load Project Error:", err)
-      alert("Failed to load project: " + err.message)
+      console.error("Load Error:", err)
+      alert("Failed to load: " + err.message)
     } finally {
       e.target.value = null
     }
@@ -268,27 +267,6 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      {/* SIDEBAR */}
-      {slides.length > 0 && (
-        <div className="slide-deck">
-          <div className="deck-header">Slide Deck</div>
-          <div className="thumb-container">
-            {slides.map((s, i) => (
-              <div
-                key={i}
-                className={`slide-thumb ${currIdx === i ? 'active' : ''}`}
-                onClick={() => goToSlide(i)}
-              >
-                <div className="thumb-preview">
-                  <img src={s} alt="" />
-                </div>
-                <div className="thumb-label">Slide {i + 1}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="main-canvas">
         <div className="toolbar">
           <label className="upload-btn">
@@ -298,23 +276,15 @@ export default function App() {
 
           <div className="divider" />
 
-          <button type="button" className="icon-btn" onClick={saveProject}>💾 Save Project</button>
+          <button type="button" className="icon-btn" onClick={saveProject}>💾 Save Project (.board)</button>
           <label className="icon-btn">
-            📂 Load Project
-            <input type="file" accept=".navdis" onChange={loadProject} style={{ display: 'none' }} />
+            📂 Load Project (.board)
+            <input type="file" accept=".board" onChange={loadProject} style={{ display: 'none' }} />
           </label>
 
           <div style={{ flex: 1 }} />
 
-          <div className="slide-tools">
-            <label className="action-btn" style={{ background: '#8b5cf6' }}>
-              📥 Load Board
-              <input type="file" accept=".board" onChange={loadBoard} style={{ display: 'none' }} />
-            </label>
-            <button type="button" className="action-btn" style={{ background: '#8b5cf6' }} onClick={saveBoard}>📤 Save Board</button>
-            <button type="button" className="action-btn" style={{ background: '#ef4444' }} onClick={resetSlide}>Reset Page</button>
-          </div>
-
+          <button type="button" className="action-btn" onClick={resetSlide} style={{ background: '#ef4444' }}>Reset Page</button>
           <button type="button" className="action-btn" onClick={exportPNG}>Export PNG</button>
           <button type="button" className="action-btn" onClick={() => setDark(!dark)}>{dark ? '☀️' : '🌙'}</button>
         </div>
@@ -351,74 +321,6 @@ export default function App() {
           background: #0f172a;
           color: white;
           overflow: hidden;
-        }
-
-        .slide-deck {
-          width: 220px;
-          height: 100vh;
-          background: #1e293b;
-          border-right: 1px solid rgba(255,255,255,0.1);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .deck-header {
-          padding: 20px;
-          font-weight: bold;
-          font-size: 14px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #94a3b8;
-        }
-
-        .thumb-container {
-          flex: 1;
-          overflow-y: auto;
-          padding: 0 15px 20px;
-        }
-
-        .slide-thumb {
-          margin-bottom: 20px;
-          padding: 8px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.03);
-          border: 2px solid transparent;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .slide-thumb:hover {
-          background: rgba(255,255,255,0.08);
-        }
-
-        .slide-thumb.active {
-          border-color: #3b82f6;
-          background: rgba(59, 130, 246, 0.1);
-        }
-
-        .thumb-preview {
-          aspect-ratio: 16/10;
-          background: #000;
-          border-radius: 6px;
-          overflow: hidden;
-          margin-bottom: 6px;
-        }
-
-        .thumb-preview img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-
-        .thumb-label {
-          font-size: 11px;
-          text-align: center;
-          color: #64748b;
-        }
-
-        .slide-thumb.active .thumb-label {
-          color: #3b82f6;
-          font-weight: bold;
         }
 
         .main-canvas {
@@ -481,11 +383,6 @@ export default function App() {
           border-radius: 8px;
           font-size: 13px;
           cursor: pointer;
-        }
-
-        .slide-tools {
-          display: flex;
-          gap: 8px;
         }
 
         .canvas-wrapper {
