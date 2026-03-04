@@ -295,6 +295,10 @@ export default function App() {
             onMount={(editor) => {
               editorRef.current = editor
               editor.updateInstanceState({ isGridMode: false })
+              // Force a re-run of the slide effect if slides are already loaded
+              if (slides.length > 0) {
+                setCurrIdx(c => c)
+              }
             }}
             darkMode={dark}
           />
@@ -302,9 +306,9 @@ export default function App() {
 
         {slides.length > 0 && (
           <div className="floating-nav">
-            <button type="button" onClick={() => goToSlide(currIdx - 1)} disabled={currIdx === 0}>←</button>
+            <button type="button" className="nav-arrow" onClick={() => goToSlide(currIdx - 1)} disabled={currIdx === 0}>←</button>
             <div className="nav-info">Slide {currIdx + 1} of {slides.length}</div>
-            <button type="button" onClick={() => goToSlide(currIdx + 1)} disabled={currIdx === slides.length - 1}>→</button>
+            <button type="button" className="nav-arrow" onClick={() => goToSlide(currIdx + 1)} disabled={currIdx === slides.length - 1}>→</button>
             <div className="divider" />
             <button type="button" className="lock-toggle" onClick={toggleSlideLock}>
               {isLocked ? '🔒 Locked' : '🔓 Unlocked'}
@@ -321,10 +325,14 @@ export default function App() {
           background: #0f172a;
           color: white;
           overflow: hidden;
+          position: fixed;
+          top: 0;
+          left: 0;
         }
 
         .main-canvas {
-          flex: 1;
+          width: 100%;
+          height: 100%;
           display: flex;
           flex-direction: column;
           position: relative;
@@ -332,14 +340,72 @@ export default function App() {
 
         .toolbar {
           height: 60px;
-          background: rgba(30, 41, 59, 0.8);
-          backdrop-filter: blur(10px);
+          min-height: 60px;
+          background: #1e293b;
           display: flex;
           align-items: center;
           padding: 0 20px;
           gap: 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          z-index: 10;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          z-index: 9999;
+          position: relative;
+        }
+
+        .canvas-wrapper {
+          flex: 1;
+          height: calc(100vh - 60px);
+          position: relative;
+          z-index: 1;
+        }
+
+        .floating-nav {
+          position: fixed;
+          bottom: 30px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #1e293b;
+          padding: 10px 25px;
+          border-radius: 50px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+          border: 1px solid #334155;
+          z-index: 99999;
+        }
+
+        .nav-arrow {
+          background: #334155;
+          border: none;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+
+        .nav-arrow:hover:not(:disabled) {
+          background: #3b82f6;
+          transform: scale(1.1);
+        }
+
+        .nav-arrow:disabled {
+          opacity: 0.2;
+          cursor: not-allowed;
+        }
+
+        .nav-info {
+          font-size: 14px;
+          font-weight: 600;
+          color: #94a3b8;
+          min-width: 120px;
+          text-align: center;
+          font-family: monospace;
         }
 
         .upload-btn {
@@ -350,94 +416,43 @@ export default function App() {
           cursor: pointer;
           font-size: 13px;
           font-weight: bold;
-          white-space: nowrap;
         }
 
         .icon-btn {
-          background: transparent;
-          color: #94a3b8;
-          border: 1px solid rgba(255,255,255,0.1);
-          padding: 6px 12px;
+          background: #334155;
+          color: #f1f5f9;
+          border: 1px solid #475569;
+          padding: 6px 14px;
           border-radius: 8px;
           font-size: 13px;
           cursor: pointer;
         }
 
-        .icon-btn:hover {
-          background: rgba(255,255,255,0.05);
+        .action-btn {
+          background: #3b82f6;
           color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 13px;
+          cursor: pointer;
         }
 
         .divider {
           width: 1px;
           height: 24px;
-          background: rgba(255,255,255,0.1);
-          margin: 0 4px;
-        }
-
-        .action-btn {
-          background: #334155;
-          color: white;
-          border: none;
-          padding: 8px 14px;
-          border-radius: 8px;
-          font-size: 13px;
-          cursor: pointer;
-        }
-
-        .canvas-wrapper {
-          flex: 1;
-          position: relative;
-        }
-
-        .floating-nav {
-          position: absolute;
-          bottom: 30px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(15, 23, 42, 0.9);
-          backdrop-filter: blur(15px);
-          padding: 8px 20px;
-          border-radius: 50px;
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-          border: 1px solid rgba(255,255,255,0.1);
-          z-index: 100;
-        }
-
-        .floating-nav button {
-          background: transparent;
-          border: none;
-          color: white;
-          font-size: 20px;
-          cursor: pointer;
-          padding: 4px 10px;
-          border-radius: 10px;
-        }
-
-        .floating-nav button:hover:not(:disabled) {
-          background: rgba(255,255,255,0.1);
-        }
-
-        .floating-nav button:disabled {
-          opacity: 0.2;
-          cursor: not-allowed;
-        }
-
-        .nav-info {
-          font-size: 13px;
-          font-weight: bold;
-          color: #94a3b8;
-          min-width: 100px;
-          text-align: center;
+          background: #475569;
         }
 
         .lock-toggle {
-          font-size: 12px !important;
-          color: #3b82f6 !important;
+          padding: 6px 12px;
+          border-radius: 8px;
+          border: none;
+          background: #334155;
+          color: #3b82f6;
           font-weight: bold;
+          font-size: 12px;
+          cursor: pointer;
         }
       `}</style>
     </div>
